@@ -1,21 +1,30 @@
-import com.example.musicgen.MusicGenGenerator
-import java.io.File
+package musicgen
+
+import ai.onnxruntime.*
+import musicgen.inference.*
+import musicgen.tokenizer.*
 
 fun main() {
-    val generator = MusicGenGenerator(
-        decoderModelPath = "src/main/resources/decoder_model.onnx",
-        vocoderModelPath = "src/main/resources/encodec_decode.onnx"
-    )
+    val env = OrtEnvironment.getEnvironment()
 
-    val vocab = generator.loadVocabFromTokenizerJson(File("src/main/resources/tokenizer.json"))
-    val inputIds = generator.simpleTokenizer("a peaceful ambient melody", vocab)
+    // Load ONNX sessions
+    val decoderSession = env.createSession("src/main/resources/decoder_model.onnx")
+    val vocoderSession = env.createSession("src/main/resources/encodec_decode.onnx")
 
-    val encoderStates = Array(1) { Array(20) { FloatArray(768) { 0.01f } } }
-    val attentionMask = Array(1) { LongArray(20) { 1L } }
+    
+    val decoder = DecoderRunner(decoderSession)
+    val vocoder = VocoderRunner(vocoderSession)
 
-    val tokens = generator.generateTokens(inputIds, encoderStates, attentionMask)
-    val audio = generator.runVocoder(tokens)
+    // Generate random input_ids: [4 x 192] = 768 tokens
+    val numCodebooks = 4
+    val sequenceLength = 192
+    val shape = longArrayOf(numCodebooks.toLong(), sequenceLength.toLong())
+    val inputIds = LongArray(numCodebooks * sequenceLength) { (0..255).random().toLong() }
 
-    generator.saveWav(File("generated_music.wav"), audio)
+    println("Generating audio from random latent tokens...")
+    val tokenIds = decoder.decode(inputIds, shape)
+    val audio = vocoder.synthesize(tokenIds)
+    vocoder.saveAsWav(audio)
+
     println("✅ Music generated and saved to 'generated_music.wav'")
 }

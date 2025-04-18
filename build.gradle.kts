@@ -13,6 +13,7 @@ dependencies {
     testImplementation(kotlin("test"))
     implementation("com.microsoft.onnxruntime:onnxruntime:1.17.0")
     implementation("org.json:json:20230227")
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 tasks.test {
